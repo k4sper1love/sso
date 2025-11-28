@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/k4sper1love/sso/internal/domain/models"
 	"github.com/k4sper1love/sso/internal/lib/jwt"
 	"github.com/k4sper1love/sso/internal/lib/logger/sl"
+	"github.com/k4sper1love/sso/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -65,6 +67,12 @@ func (a *Auth) Login(ctx context.Context, email string, password string, appID i
 
 	user, err := a.userProvider.User(ctx, email)
 	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			a.log.Warn("user not found", sl.Err(err))
+
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		}
+
 		a.log.Error("failed to get user", sl.Err(err))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
