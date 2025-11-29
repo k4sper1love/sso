@@ -3,7 +3,10 @@ package main
 import (
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/k4sper1love/sso/internal/app"
 	"github.com/k4sper1love/sso/internal/config"
 )
 
@@ -18,9 +21,22 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 
-	log.Info("starting sso service",slog.String("env", cfg.Env))
+	log.Info("starting sso service", slog.String("env", cfg.Env))
 	log.Debug("debug log enabled")
 
+	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL)
+
+	go func() {
+		application.GRPCServer.MustRun()
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+
+	<-stop
+
+	application.GRPCServer.Stop()
+	log.Info("server gracefully stoped")
 }
 
 func setupLogger(env string) *slog.Logger {
